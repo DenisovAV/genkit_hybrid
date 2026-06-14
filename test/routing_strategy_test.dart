@@ -3,6 +3,7 @@ import 'package:genkit_hybrid/src/routing_context.dart';
 import 'package:genkit_hybrid/src/routing_strategy.dart';
 import 'package:genkit_hybrid/src/strategies/connectivity.dart';
 import 'package:genkit_hybrid/src/strategies/fallback.dart';
+import 'package:genkit_hybrid/src/strategies/first_match.dart';
 import 'package:genkit_hybrid/src/strategies/input_size.dart';
 import 'package:genkit_hybrid/src/strategies/pre_routing.dart';
 import 'package:test/test.dart';
@@ -81,6 +82,22 @@ void main() {
     final s = InputSizeStrategy(threshold: 10, small: 'onDevice', large: 'cloud');
     const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
     expect(s.route(ctx), ['onDevice']);
+  });
+
+  test('FirstMatch returns first non-empty child result; skips empty', () {
+    final s = FirstMatch([
+      _ConstStrategy([]),            // no decision -> skipped
+      _ConstStrategy(['cloud']),     // first match
+      _ConstStrategy(['onDevice']),  // never reached
+    ]);
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['cloud']);
+  });
+
+  test('FirstMatch returns empty when all children are empty', () {
+    final s = FirstMatch([_ConstStrategy([]), _ConstStrategy([])]);
+    const ctx = RoutingContext(request: null, branchKeys: {'cloud'}, isStreaming: false);
+    expect(s.route(ctx), isEmpty);
   });
 }
 
