@@ -141,6 +141,12 @@ void main() {
     expect(s.route(ctx), ['cloud', 'onDevice']); // unaffected
   });
 
+  test('PreRoutingStrategy treats empty-string return as no decision', () {
+    final s = PreRoutingStrategy((_) => '');
+    const ctx = RoutingContext(request: null, branchKeys: {'cloud'}, isStreaming: false);
+    expect(s.route(ctx), isEmpty);
+  });
+
   test('InputSizeStrategy: size equal to threshold routes to small', () {
     final s = InputSizeStrategy(threshold: 10, small: 'onDevice', large: 'cloud');
     final exactReq = ModelRequest(messages: [
