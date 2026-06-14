@@ -1,6 +1,7 @@
 import 'package:genkit/genkit.dart';
 import 'package:genkit_hybrid/src/routing_context.dart';
 import 'package:genkit_hybrid/src/routing_strategy.dart';
+import 'package:genkit_hybrid/src/strategies/fallback.dart';
 import 'package:genkit_hybrid/src/strategies/pre_routing.dart';
 import 'package:test/test.dart';
 
@@ -39,6 +40,12 @@ void main() {
     const block = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
     expect(s.route(stream), ['cloud']);
     expect(s.route(block), ['onDevice']);
+  });
+
+  test('FallbackStrategy returns its fixed order regardless of context', () {
+    final s = FallbackStrategy(['onDevice', 'cloud']);
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['onDevice', 'cloud']);
   });
 }
 
