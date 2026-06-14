@@ -1,5 +1,6 @@
 import 'package:genkit/genkit.dart';
 import 'package:genkit_hybrid/src/routing_context.dart';
+import 'package:genkit_hybrid/src/routing_strategy.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -22,4 +23,19 @@ void main() {
     expect(ctx2.request, same(request));
     expect(ctx2.isStreaming, isFalse);
   });
+
+  test('RoutingStrategy can be implemented and returns ordered keys', () {
+    final s = _ConstStrategy(['cloud', 'onDevice']);
+    const ctx = RoutingContext(
+      request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false,
+    );
+    expect(s.route(ctx), ['cloud', 'onDevice']);
+  });
+}
+
+class _ConstStrategy implements RoutingStrategy {
+  _ConstStrategy(this.keys);
+  final List<String> keys;
+  @override
+  List<String> route(RoutingContext context) => keys;
 }
