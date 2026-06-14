@@ -64,17 +64,44 @@ Model hybridModel({
         }
       }
 
-      // Blocking path (streaming added in a later task).
+      // Non-streaming: try each branch, fall back on transient failure.
+      if (!context.streamingRequested) {
+        for (var i = 0; i < order.length; i++) {
+          final key = order[i];
+          final isLast = i == order.length - 1;
+          try {
+            return await frozenBranches[key]!.fn(request, context);
+          } catch (e) {
+            if (isLast || !_isTransient(e)) rethrow;
+          }
+        }
+        throw StateError('unreachable'); // loop always returns or rethrows.
+      }
+
+      // Streaming: fall back ONLY before the first token is emitted.
       for (var i = 0; i < order.length; i++) {
         final key = order[i];
         final isLast = i == order.length - 1;
+        var firstTokenSent = false;
+        final wrappedContext = (
+          streamingRequested: true,
+          sendChunk: (ModelResponseChunk chunk) {
+            firstTokenSent = true;
+            context.sendChunk(chunk);
+          },
+          context: context.context,
+          inputStream: context.inputStream,
+          init: null,
+        );
         try {
-          return await frozenBranches[key]!.fn(request, context);
+          return await frozenBranches[key]!.fn(request, wrappedContext);
         } catch (e) {
-          if (isLast || !_isTransient(e)) rethrow;
+          // Once a token is out, we cannot re-route — propagate.
+          // Before the first token, fall back on transient failures only.
+          if (firstTokenSent || isLast || !_isTransient(e)) rethrow;
         }
       }
-      throw StateError('unreachable'); // Dart cannot prove the loop is exhaustive; the loop always returns or rethrows.
+      throw StateError('unreachable'); // loop always returns or rethrows.
     },
   );
 }

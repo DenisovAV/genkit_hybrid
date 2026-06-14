@@ -23,6 +23,20 @@ final _blockingCtx = (
   init: null,
 );
 
+({List<String> received, dynamic ctx}) _streamingCtx() {
+  final received = <String>[];
+  final ctx = (
+    streamingRequested: true,
+    sendChunk: (ModelResponseChunk chunk) {
+      received.add(chunk.content.first.text ?? '');
+    },
+    context: <String, dynamic>{},
+    inputStream: null,
+    init: null,
+  );
+  return (received: received, ctx: ctx);
+}
+
 void main() {
   test('pre-routing: only the chosen branch is called', () async {
     var deviceCalls = 0, cloudCalls = 0;
@@ -121,5 +135,34 @@ void main() {
     final res = await model.fn(_req(), _blockingCtx);
     expect(deviceCalls, 1);
     expect(res.message!.content.first.text, 'recovered');
+  });
+
+  test('streaming: branch fails before first token -> next branch used', () async {
+    final s = _streamingCtx();
+    final model = hybridModel(
+      branches: {
+        'onDevice': fakeModel(name: 'd', throwBeforeToken: true),
+        'cloud': fakeModel(name: 'c', text: 'done', chunks: ['he', 'llo']),
+      },
+      strategy: _Pick(['onDevice', 'cloud']),
+    );
+    final res = await model.fn(_req(), s.ctx);
+    expect(s.received, ['he', 'llo']);
+    expect(res.message!.content.first.text, 'done');
+  });
+
+  test('streaming: branch fails AFTER first token -> propagates, no re-route', () async {
+    final s = _streamingCtx();
+    var cloudCalls = 0;
+    final model = hybridModel(
+      branches: {
+        'onDevice': fakeModel(name: 'd', chunks: ['partial'], throwAfterToken: true),
+        'cloud': fakeModel(name: 'c', text: 'should-not-run', onCall: () => cloudCalls++),
+      },
+      strategy: _Pick(['onDevice', 'cloud']),
+    );
+    expect(() => model.fn(_req(), s.ctx), throwsA(isA<StateError>()));
+    expect(s.received, ['partial']); // first token already delivered
+    expect(cloudCalls, 0);           // NOT re-routed mid-stream
   });
 }
