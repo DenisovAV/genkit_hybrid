@@ -118,6 +118,37 @@ void main() {
     const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
     expect(s.route(ctx), ['onDevice', 'cloud']);
   });
+
+  test('FallbackStrategy ignores later mutation of the input list', () {
+    final input = ['onDevice', 'cloud'];
+    final s = FallbackStrategy(input);
+    input.add('mutated'); // mutate AFTER construction
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['onDevice', 'cloud']); // unaffected by mutation
+  });
+
+  test('FallbackStrategy returns an unmodifiable list', () {
+    final s = FallbackStrategy(['onDevice', 'cloud']);
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(() => s.route(ctx).add('x'), throwsUnsupportedError);
+  });
+
+  test('WithFallback ignores later mutation of fallbackOrder', () {
+    final tail = ['onDevice'];
+    final s = WithFallback(_ConstStrategy(['cloud']), fallbackOrder: tail);
+    tail.add('mutated'); // mutate AFTER construction
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['cloud', 'onDevice']); // unaffected
+  });
+
+  test('InputSizeStrategy: size equal to threshold routes to small', () {
+    final s = InputSizeStrategy(threshold: 10, small: 'onDevice', large: 'cloud');
+    final exactReq = ModelRequest(messages: [
+      Message(role: Role.user, content: [TextPart(text: '1234567890')]), // exactly 10 chars
+    ]);
+    final ctx = RoutingContext(request: exactReq, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['onDevice']); // == threshold -> small
+  });
 }
 
 class _ConstStrategy implements RoutingStrategy {
