@@ -133,6 +133,10 @@ void main() {
     expect(() => s.route(ctx).add('x'), throwsUnsupportedError);
   });
 
+  test('FallbackStrategy throws on empty order (release-safe, not assert)', () {
+    expect(() => FallbackStrategy([]), throwsArgumentError);
+  });
+
   test('WithFallback ignores later mutation of fallbackOrder', () {
     final tail = ['onDevice'];
     final s = WithFallback(_ConstStrategy(['cloud']), fallbackOrder: tail);

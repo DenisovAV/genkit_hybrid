@@ -30,7 +30,7 @@ final res = await ai.generate(model: smart, prompt: 'Hello!');
 | `ConnectivityStrategy(...)` | network availability |
 | `InputSizeStrategy(...)` | prompt length |
 | `FirstMatch([...])` | first child strategy that decides (chain of rules) |
-| `WithFallback(s, order)` | any strategy's pick + a guaranteed fallback tail |
+| `WithFallback(s, fallbackOrder: order)` | any strategy's pick + a guaranteed fallback tail |
 
 ### Recipe: PREFER_ON_DEVICE
 ```dart
