@@ -3,6 +3,7 @@ import 'package:genkit_hybrid/src/routing_context.dart';
 import 'package:genkit_hybrid/src/routing_strategy.dart';
 import 'package:genkit_hybrid/src/strategies/connectivity.dart';
 import 'package:genkit_hybrid/src/strategies/fallback.dart';
+import 'package:genkit_hybrid/src/strategies/input_size.dart';
 import 'package:genkit_hybrid/src/strategies/pre_routing.dart';
 import 'package:test/test.dart';
 
@@ -59,6 +60,26 @@ void main() {
     const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
     expect(s.route(ctx), ['cloud']);
     online = false;
+    expect(s.route(ctx), ['onDevice']);
+  });
+
+  test('InputSizeStrategy routes by total prompt char length', () {
+    final s = InputSizeStrategy(threshold: 10, small: 'onDevice', large: 'cloud');
+    final shortReq = ModelRequest(messages: [
+      Message(role: Role.user, content: [TextPart(text: 'hi')]),
+    ]);
+    final longReq = ModelRequest(messages: [
+      Message(role: Role.user, content: [TextPart(text: 'this is a long prompt')]),
+    ]);
+    RoutingContext ctx(ModelRequest r) =>
+        RoutingContext(request: r, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx(shortReq)), ['onDevice']);
+    expect(s.route(ctx(longReq)), ['cloud']);
+  });
+
+  test('InputSizeStrategy treats null request as size 0 (small)', () {
+    final s = InputSizeStrategy(threshold: 10, small: 'onDevice', large: 'cloud');
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
     expect(s.route(ctx), ['onDevice']);
   });
 }
