@@ -1,6 +1,7 @@
 import 'package:genkit/genkit.dart';
 import 'package:genkit_hybrid/src/routing_context.dart';
 import 'package:genkit_hybrid/src/routing_strategy.dart';
+import 'package:genkit_hybrid/src/strategies/connectivity.dart';
 import 'package:genkit_hybrid/src/strategies/fallback.dart';
 import 'package:genkit_hybrid/src/strategies/pre_routing.dart';
 import 'package:test/test.dart';
@@ -46,6 +47,19 @@ void main() {
     final s = FallbackStrategy(['onDevice', 'cloud']);
     const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
     expect(s.route(ctx), ['onDevice', 'cloud']);
+  });
+
+  test('ConnectivityStrategy routes by online/offline', () {
+    var online = true;
+    final s = ConnectivityStrategy(
+      isOnline: () => online,
+      online: 'cloud',
+      offline: 'onDevice',
+    );
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['cloud']);
+    online = false;
+    expect(s.route(ctx), ['onDevice']);
   });
 }
 
