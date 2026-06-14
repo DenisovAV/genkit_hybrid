@@ -1,6 +1,7 @@
 import 'package:genkit/genkit.dart';
 import 'package:genkit_hybrid/src/routing_context.dart';
 import 'package:genkit_hybrid/src/routing_strategy.dart';
+import 'package:genkit_hybrid/src/strategies/pre_routing.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -30,6 +31,14 @@ void main() {
       request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false,
     );
     expect(s.route(ctx), ['cloud', 'onDevice']);
+  });
+
+  test('PreRoutingStrategy wraps a function and returns single key', () {
+    final s = PreRoutingStrategy((c) => c.isStreaming ? 'cloud' : 'onDevice');
+    const stream = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: true);
+    const block = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(stream), ['cloud']);
+    expect(s.route(block), ['onDevice']);
   });
 }
 
