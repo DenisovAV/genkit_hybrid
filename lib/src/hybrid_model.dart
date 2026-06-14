@@ -4,6 +4,24 @@ import 'package:genkit/plugin.dart';
 import 'routing_context.dart';
 import 'routing_strategy.dart';
 
+/// Whether [error] is a transient/availability failure that justifies trying
+/// the next branch. Permanent errors (bad request, bad auth) must NOT trigger
+/// fallback — the next branch would get the same bad request and also fail,
+/// masking the real cause. Non-GenkitException throwables (network, timeout,
+/// OOM) are treated as transient.
+bool _isTransient(Object error) {
+  if (error is! GenkitException) return true;
+  switch (error.status) {
+    case StatusCodes.UNAVAILABLE:
+    case StatusCodes.DEADLINE_EXCEEDED:
+    case StatusCodes.RESOURCE_EXHAUSTED:
+    case StatusCodes.INTERNAL:
+      return true;
+    default:
+      return false;
+  }
+}
+
 /// Branch key for the on-device model in the binary façade.
 const String kOnDevice = 'onDevice';
 
@@ -20,12 +38,13 @@ Model hybridModel({
   if (branches.isEmpty) {
     throw ArgumentError.value(branches, 'branches', 'must not be empty');
   }
+  final frozenBranches = Map<String, Model>.unmodifiable(branches);
   return Model(
     name: 'hybrid',
     fn: (request, context) async {
       final order = strategy.route(RoutingContext(
         request: request,
-        branchKeys: branches.keys.toSet(),
+        branchKeys: frozenBranches.keys.toSet(),
         isStreaming: context.streamingRequested,
       ));
 
@@ -36,10 +55,10 @@ Model hybridModel({
         );
       }
       for (final key in order) {
-        if (!branches.containsKey(key)) {
+        if (!frozenBranches.containsKey(key)) {
           throw GenkitException(
             'RoutingStrategy returned unknown branch key "$key". '
-            'Available: ${branches.keys.join(', ')}.',
+            'Available: ${frozenBranches.keys.join(', ')}.',
             status: StatusCodes.FAILED_PRECONDITION,
           );
         }
@@ -50,12 +69,12 @@ Model hybridModel({
         final key = order[i];
         final isLast = i == order.length - 1;
         try {
-          return await branches[key]!.fn(request, context);
-        } catch (_) {
-          if (isLast) rethrow;
+          return await frozenBranches[key]!.fn(request, context);
+        } catch (e) {
+          if (isLast || !_isTransient(e)) rethrow;
         }
       }
-      throw StateError('unreachable');
+      throw StateError('unreachable'); // Dart cannot prove the loop is exhaustive; the loop always returns or rethrows.
     },
   );
 }

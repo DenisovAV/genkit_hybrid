@@ -57,11 +57,14 @@ void main() {
     final model = hybridModel(
       branches: {
         'onDevice': fakeModel(name: 'd', throwBeforeToken: true),
-        'cloud': fakeModel(name: 'c', throwBeforeToken: true),
+        'cloud': fakeModel(name: 'c2', throwBeforeToken: true),
       },
       strategy: _Pick(['onDevice', 'cloud']),
     );
-    expect(() => model.fn(_req(), _blockingCtx), throwsA(isA<StateError>()));
+    expect(
+      () => model.fn(_req(), _blockingCtx),
+      throwsA(predicate<StateError>((e) => e.message.contains('fail-before-token:c2'))),
+    );
   });
 
   test('empty route at top level throws config error', () async {
@@ -78,5 +81,45 @@ void main() {
       strategy: _Pick(['nope']),
     );
     expect(() => model.fn(_req(), _blockingCtx), throwsA(isA<GenkitException>()));
+  });
+
+  test('permanent GenkitException (e.g. bad auth) does NOT fall back', () async {
+    var cloudCalls = 0;
+    final authFailModel = Model(
+      name: 'auth-fail',
+      fn: (request, context) async =>
+          throw GenkitException('bad key', status: StatusCodes.PERMISSION_DENIED),
+    );
+    final model = hybridModel(
+      branches: {
+        'cloud': authFailModel,
+        'onDevice': fakeModel(name: 'd', text: 'should-not-run', onCall: () => cloudCalls++),
+      },
+      strategy: _Pick(['cloud', 'onDevice']),
+    );
+    expect(
+      () => model.fn(_req(), _blockingCtx),
+      throwsA(isA<GenkitException>()),
+    );
+    expect(cloudCalls, 0); // permanent error propagated; second branch NOT tried
+  });
+
+  test('transient GenkitException (UNAVAILABLE) DOES fall back', () async {
+    var deviceCalls = 0;
+    final unavailable = Model(
+      name: 'down',
+      fn: (request, context) async =>
+          throw GenkitException('offline', status: StatusCodes.UNAVAILABLE),
+    );
+    final model = hybridModel(
+      branches: {
+        'cloud': unavailable,
+        'onDevice': fakeModel(name: 'd', text: 'recovered', onCall: () => deviceCalls++),
+      },
+      strategy: _Pick(['cloud', 'onDevice']),
+    );
+    final res = await model.fn(_req(), _blockingCtx);
+    expect(deviceCalls, 1);
+    expect(res.message!.content.first.text, 'recovered');
   });
 }
