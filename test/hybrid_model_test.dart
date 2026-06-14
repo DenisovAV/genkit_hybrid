@@ -161,7 +161,8 @@ void main() {
       },
       strategy: _Pick(['onDevice', 'cloud']),
     );
-    expect(() => model.fn(_req(), s.ctx), throwsA(isA<StateError>()));
+    await expectLater(
+        () => model.fn(_req(), s.ctx), throwsA(isA<StateError>()));
     expect(s.received, ['partial']); // first token already delivered
     expect(cloudCalls, 0);           // NOT re-routed mid-stream
   });

@@ -91,6 +91,8 @@ Model hybridModel({
           },
           context: context.context,
           inputStream: context.inputStream,
+          // Safe because Model fixes Init = void; revisit if hybridModel is
+          // ever generalized to a non-void Init.
           init: null,
         );
         try {
