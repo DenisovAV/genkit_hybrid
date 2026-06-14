@@ -6,6 +6,7 @@ import 'package:genkit_hybrid/src/strategies/fallback.dart';
 import 'package:genkit_hybrid/src/strategies/first_match.dart';
 import 'package:genkit_hybrid/src/strategies/input_size.dart';
 import 'package:genkit_hybrid/src/strategies/pre_routing.dart';
+import 'package:genkit_hybrid/src/strategies/with_fallback.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -98,6 +99,24 @@ void main() {
     final s = FirstMatch([_ConstStrategy([]), _ConstStrategy([])]);
     const ctx = RoutingContext(request: null, branchKeys: {'cloud'}, isStreaming: false);
     expect(s.route(ctx), isEmpty);
+  });
+
+  test('WithFallback appends fallback tail to inner pick', () {
+    final s = WithFallback(_ConstStrategy(['cloud']), fallbackOrder: ['onDevice']);
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['cloud', 'onDevice']);
+  });
+
+  test('WithFallback de-dupes keys already chosen by inner strategy', () {
+    final s = WithFallback(_ConstStrategy(['onDevice']), fallbackOrder: ['onDevice', 'cloud']);
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['onDevice', 'cloud']);
+  });
+
+  test('WithFallback returns just the tail when inner is empty', () {
+    final s = WithFallback(_ConstStrategy([]), fallbackOrder: ['onDevice', 'cloud']);
+    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    expect(s.route(ctx), ['onDevice', 'cloud']);
   });
 }
 
