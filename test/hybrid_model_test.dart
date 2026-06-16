@@ -166,4 +166,18 @@ void main() {
     expect(s.received, ['partial']); // first token already delivered
     expect(cloudCalls, 0);           // NOT re-routed mid-stream
   });
+
+  test('hybridModel uses a custom name when provided, defaults to "hybrid"', () {
+    final a = hybridModel(
+      branches: {'cloud': fakeModel(name: 'c')},
+      strategy: _Pick(['cloud']),
+    );
+    final b = hybridModel(
+      branches: {'cloud': fakeModel(name: 'c')},
+      strategy: _Pick(['cloud']),
+      name: 'router-A',
+    );
+    expect(a.name, 'hybrid');
+    expect(b.name, 'router-A');
+  });
 }

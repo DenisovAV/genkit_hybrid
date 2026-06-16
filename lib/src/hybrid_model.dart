@@ -31,16 +31,20 @@ const String kCloud = 'cloud';
 /// Builds a hybrid [Model] that routes each request to one of [branches]
 /// according to [strategy]. The result is an ordinary [Model]: callers use it
 /// via `ai.generate(model: theResult)` exactly like any other model.
+///
+/// The optional [name] is used as the returned [Model]'s name (and registry
+/// key). Defaults to `'hybrid'` so existing call sites require no changes.
 Model hybridModel({
   required Map<String, Model> branches,
   required RoutingStrategy strategy,
+  String name = 'hybrid',
 }) {
   if (branches.isEmpty) {
     throw ArgumentError.value(branches, 'branches', 'must not be empty');
   }
   final frozenBranches = Map<String, Model>.unmodifiable(branches);
   return Model(
-    name: 'hybrid',
+    name: name,
     fn: (request, context) async {
       final order = strategy.route(RoutingContext(
         request: request,
@@ -109,13 +113,18 @@ Model hybridModel({
 }
 
 /// Binary façade over [hybridModel] for the common on-device/cloud case.
+///
+/// The optional [name] is forwarded to [hybridModel] as the returned [Model]'s
+/// name (and registry key). Defaults to `'hybrid'`.
 Model hybridModelOnDeviceCloud({
   required Model onDevice,
   required Model cloud,
   required RoutingStrategy strategy,
+  String name = 'hybrid',
 }) {
   return hybridModel(
     branches: {kOnDevice: onDevice, kCloud: cloud},
     strategy: strategy,
+    name: name,
   );
 }
